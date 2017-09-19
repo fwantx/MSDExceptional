@@ -1,5 +1,5 @@
 import os
-from flask import Flask
+from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
@@ -20,5 +20,8 @@ class User(db.Model):
 
 @app.route("/")
 def hello():
-	return "Hello World! Test Github Integeration!"
+	admin = User.query.filter_by(username='admin').first()
+	return jsonify(username=admin.username,
+			email=admin.email,
+			id=admin.id) 
 
