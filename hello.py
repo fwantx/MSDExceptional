@@ -50,7 +50,12 @@ class Shelter(db.Model):
 	def __repr__(self):
 		return '<Shelter %r>' % self.name
 
-
+	def serialize(self):
+		return {
+			'id': self.id,
+			'name': self.name,
+			'capacity': self.capacity
+		}
 
 
 @app.route("/")
@@ -64,6 +69,21 @@ def hello():
 def getCities():
 	cities = City.query.all()
 	# https://stackoverflow.com/questions/21411497/flask-jsonify-a-list-of-objects
-	return jsonify([e.serialize() for e in cities])
+	return jsonify([city.serialize() for city in cities])
+
+@app.route("/getSheltersByCity")
+def getShelterByCity():
+	cities = City.query.all()
+	return jsonify(
+		{
+			city.name: [
+				shelter.serialize() for shelter in city.shelters
+			] for city in cities
+		}
+	)
+
+
+
+
 
 
