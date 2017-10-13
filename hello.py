@@ -7,42 +7,44 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import and_
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:////tmp/test.db')
+# app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:////tmp/test.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:931028hmh@localhost:3306/PetTracking'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 db = SQLAlchemy(app)
 
 class User(db.Model):
-	id = db.Column(db.Integer, primary_key=True)
-	username = db.Column(db.String(80), unique=True)
-	email = db.Column(db.String(120), unique=True)
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True)
+    email = db.Column(db.String(120), unique=True)
 
-	def __init__(self, username, email):
-		self.username = username
-		self.email = email
-	
-	def __repr__(self):
-		return '<User %r>' % self.username
+    def __init__(self, username, email):
+        self.username = username
+        self.email = email
+
+    def __repr__(self):
+        return '<User %r>' % self.username
 
 class City(db.Model):
-	id = db.Column(db.Integer, primary_key=True)
-	name = db.Column(db.String(255))
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255))
+    shelters = db.relationship('Shelter', backref='shelter', lazy=True)
 
-	def __init__(self, name):
-		self.name = name
+    def __init__(self, name):
+        self.name = name
 
-	def __repr__(self):
-		return '<City %r>' % self.name
+    def __repr__(self):
+        return '<City %r>' % self.name
 
-	def serialize(self):
-		return {
-			'id': self.id,
-			'name': self.name,
-		}
+    def serialize(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+        }
 
 class Shelter(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), unique=True)
-    city_id = db.Column(db.Integer, nullable=False)
+    city_id = db.Column(db.Integer, db.ForeignKey('city.id'), nullable=False)
     location_x = db.Column(db.Integer, nullable=False)
     location_y = db.Column(db.Integer, nullable=False)
     kennel_num = db.Column(db.Integer, nullable=False)
@@ -167,36 +169,36 @@ def search_pet():
 
 
     pets = Pet.query.filter(and_(Pet.found_location_x > boundx1,
-											 Pet.found_location_x < boundx2,
-											 Pet.found_location_y > boundy1,
-											 Pet.found_location_y < boundy2)).all()
+                                             Pet.found_location_x < boundx2,
+                                             Pet.found_location_y > boundy1,
+                                             Pet.found_location_y < boundy2)).all()
     list = [pet.id for pet in pets]
     return jsonify(results=list)
 
 
 @app.route("/")
 def hello():
-	admin = User.query.filter_by(username='admin').first()
-	return jsonify(username=admin.username,
-			email=admin.email,
-			id=admin.id) 
+    admin = User.query.filter_by(username='admin').first()
+    return jsonify(username=admin.username,
+            email=admin.email,
+            id=admin.id)
 
 @app.route("/getCities")
 def getCities():
-	cities = City.query.all()
-	# https://stackoverflow.com/questions/21411497/flask-jsonify-a-list-of-objects
-	return jsonify([city.serialize() for city in cities])
+    cities = City.query.all()
+    # https://stackoverflow.com/questions/21411497/flask-jsonify-a-list-of-objects
+    return jsonify([city.serialize() for city in cities])
 
 @app.route("/getSheltersByCity")
 def getShelterByCity():
-	cities = City.query.all()
-	return jsonify(
-		{
-			city.name: [
-				shelter.serialize() for shelter in city.shelters
-			] for city in cities
-		}
-	)
+    cities = City.query.all()
+    return jsonify(
+        {
+            city.name: [
+                shelter.serialize() for shelter in city.shelters
+            ] for city in cities
+        }
+    )
 
 
 
