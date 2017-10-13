@@ -42,14 +42,16 @@ class City(db.Model):
 class Shelter(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), unique=True)
+    city_id = db.Column(db.Integer, nullable=False)
     location_x = db.Column(db.Integer, nullable=False)
     location_y = db.Column(db.Integer, nullable=False)
     kennel_num = db.Column(db.Integer, nullable=False)
     empty_kennel_num = db.Column(db.Integer, nullable=False)
     pets = db.relationship('Pet', backref='pet', lazy=True)
 
-    def __init__(self, name, location_x, location_y, kennel_num):
+    def __init__(self, name, city_id, location_x, location_y, kennel_num):
         self.name = name
+        self.city_id = city_id
         self.location_x = location_x
         self.location_y = location_y
         self.kennel_num = kennel_num
