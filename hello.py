@@ -67,7 +67,7 @@ class Shelter(db.Model):
         return {
             'id': self.id,
             'name': self.name,
-            'capacity': self.capacity
+            'capacity': self.kennel_num
             }
 
 # class GenderType(enum.Enum):
