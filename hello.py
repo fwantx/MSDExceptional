@@ -5,6 +5,7 @@ from datetime import date
 from flask import Flask, jsonify, Response, request
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import and_
+import utils
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:////tmp/test.db')
@@ -180,6 +181,7 @@ def hello():
 			id=admin.id) 
 
 @app.route("/getCities")
+@utils.crossdomain(origin='*')
 def getCities():
 	cities = City.query.all()
 	# https://stackoverflow.com/questions/21411497/flask-jsonify-a-list-of-objects
