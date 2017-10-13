@@ -63,6 +63,12 @@ class Shelter(db.Model):
     def __repr__(self):
         return '<Shelter %r>' % self.name
 
+    def serialize(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'capacity': self.capacity
+            }
 
 # class GenderType(enum.Enum):
 #     MALE = "Male"
