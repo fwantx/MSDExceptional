@@ -2,7 +2,7 @@ import os
 import json
 import datetime
 from datetime import date
-from flask import Flask, jsonify, Response, request
+from flask import Flask, jsonify, Response, request, abort
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import and_
 import utils
@@ -41,6 +41,14 @@ class City(db.Model):
             'id': self.id,
             'name': self.name,
         }
+
+    def save(self):
+        db.session.delete(self)
+        db.session.commit()
+
+    def delete(self):
+        db.session.delete(self)
+        db.session.commit()
 
 class Shelter(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -102,11 +110,6 @@ class Pet(db.Model):
 
     def __repr__(self):
         return '<Pet %r>' % self.id
-
-
-if __name__ == '__main__':
-    db.create_all()
-
 
 @app.route("/test")
 def test():
@@ -190,12 +193,50 @@ def hello():
             email=admin.email,
             id=admin.id)
 
-@app.route("/getCities")
+@app.route("/cities", methods=['GET', 'POST'])
 @utils.crossdomain(origin='*')
-def getCities():
-    cities = City.query.all()
-    # https://stackoverflow.com/questions/21411497/flask-jsonify-a-list-of-objects
-    return jsonify([city.serialize() for city in cities])
+def cities():
+    if request.method == 'POST':
+        name = request.get_json().get('name')
+        city = City(name=name)
+        db.session.add(city)
+        db.session.commit()
+        response = jsonify(city.serialize())
+        response.status_code = 201
+        return response
+    else:
+        cities = City.query.all()
+        # https://stackoverflow.com/questions/21411497/flask-jsonify-a-list-of-objects
+        response = jsonify([city.serialize() for city in cities])
+        response.status_code = 200
+        return response
+
+@app.route("/cities/<int:id>", methods=['GET', 'PUT', 'DELETE'])
+@utils.crossdomain(origin='*')
+def city_operation(id, **kwargs):
+    city = City.query.filter_by(id=id).first()
+    if not city:
+        abort(404)
+    if request.method == 'DELETE':
+        city.delete()
+        response = jsonify(
+            {
+                "message": "city {} deleted successfully".format(city.id)
+            }
+        )
+        response.status_code = 200
+        return response
+    elif request.method == 'PUT':
+        name = request.get_json().get('name')
+        city.name = name
+        city.save()
+        response = jsonify(city.serialize())
+        response.status_code = 200
+        return response
+    else:
+        response = jsonify(city.serialize())
+        response.status_code = 200
+        return response
 
 @app.route("/getSheltersByCity")
 def getShelterByCity():
@@ -207,7 +248,6 @@ def getShelterByCity():
             ] for city in cities
         }
     )
-
 
 
 
