@@ -15,22 +15,18 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:/
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 db = SQLAlchemy(app)
 
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True)
-    email = db.Column(db.String(120), unique=True)
+class Base(object):
+    def save(self):
+        db.session.add(self)
+        db.session.commit()
 
-    def __init__(self, username, email):
-        self.username = username
-        self.email = email
+    def delete(self):
+        db.session.delete(self)
+        db.session.commit()
 
-    def __repr__(self):
-        return '<User %r>' % self.username
-
-class City(db.Model):
+class City(db.Model, Base):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255))
-    shelters = db.relationship('Shelter', backref='shelter', lazy=True)
 
     def __init__(self, name):
         self.name = name
@@ -44,31 +40,22 @@ class City(db.Model):
             'name': self.name,
         }
 
-    def save(self):
-        db.session.delete(self)
-        db.session.commit()
-
-    def delete(self):
-        db.session.delete(self)
-        db.session.commit()
-
-class Shelter(db.Model):
+class Shelter(db.Model, Base):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(255), unique=True)
-    city_id = db.Column(db.Integer, db.ForeignKey('city.id'), nullable=False)
-    location_x = db.Column(db.Integer, nullable=False)
-    location_y = db.Column(db.Integer, nullable=False)
+    name = db.Column(db.String(255))
     kennel_num = db.Column(db.Integer, nullable=False)
-    empty_kennel_num = db.Column(db.Integer, nullable=False)
+    city_id = db.Column(db.Integer, db.ForeignKey('city.id'))
+    city = db.relationship('City', backref=db.backref('shelters', lazy='dynamic'))
+    location_x = db.Column(db.Integer, nullable=False)
+    location_y = db.Column(db.Integer, nullable=False)    
     pets = db.relationship('Pet', backref='pet', lazy=True)
 
-    def __init__(self, name, city_id, location_x, location_y, kennel_num):
+    def __init__(self, name, kennel_num, city, location_x, location_y):
         self.name = name
-        self.city_id = city_id
+        self.kennel_num = kennel_num
+        self.city = city
         self.location_x = location_x
         self.location_y = location_y
-        self.kennel_num = kennel_num
-        self.empty_kennel_num = kennel_num
 
     def __repr__(self):
         return '<Shelter %r>' % self.name
@@ -77,8 +64,11 @@ class Shelter(db.Model):
         return {
             'id': self.id,
             'name': self.name,
-            'capacity': self.kennel_num
-            }
+            'kennel_num': self.kennel_num,
+            'city': self.city.serialize(),
+            'location_x': self.location_x,
+            'location_y': self.location_y,
+        }
 
 # class GenderType(enum.Enum):
 #     MALE = "Male"
@@ -189,11 +179,8 @@ def search_pet():
 
 
 @app.route("/")
-def hello():
-    admin = User.query.filter_by(username='admin').first()
-    return jsonify(username=admin.username,
-            email=admin.email,
-            id=admin.id)
+def welcome():
+    return 'Welcome to Exceptional!'
 
 @app.route("/cities", methods=['GET', 'POST'])
 @utils.crossdomain(origin='*')
@@ -201,17 +188,15 @@ def cities():
     if request.method == 'POST':
         name = request.get_json().get('name')
         city = City(name=name)
-        db.session.add(city)
-        db.session.commit()
+        city.save()
         response = jsonify(city.serialize())
         response.status_code = 201
-        return response
     else:
         cities = City.query.all()
         # https://stackoverflow.com/questions/21411497/flask-jsonify-a-list-of-objects
         response = jsonify([city.serialize() for city in cities])
         response.status_code = 200
-        return response
+    return response
 
 @app.route("/cities/<int:id>", methods=['GET', 'PUT', 'DELETE'])
 @utils.crossdomain(origin='*')
@@ -227,31 +212,63 @@ def city_operation(id, **kwargs):
             }
         )
         response.status_code = 200
-        return response
     elif request.method == 'PUT':
         name = request.get_json().get('name')
         city.name = name
         city.save()
         response = jsonify(city.serialize())
         response.status_code = 200
-        return response
     else:
         response = jsonify(city.serialize())
         response.status_code = 200
-        return response
+    return response
 
-@app.route("/getSheltersByCity")
-def getShelterByCity():
-    cities = City.query.all()
-    return jsonify(
-        {
-            city.name: [
-                shelter.serialize() for shelter in city.shelters
-            ] for city in cities
-        }
-    )
+@app.route("/cities/<int:id>/shelters", methods=['GET', 'POST'])
+@utils.crossdomain(origin='*')
+def shelters_by_city(id, **kwargs):
+    city = City.query.filter_by(id=id).first()
+    if not city:
+        abort(404)
+    if request.method == 'POST':
+        params = request.get_json()
+        shelter = Shelter(params['name'], params['kennel_num'], city, params['location_x'], params['location_y'])
+        shelter.save()
+        response = jsonify(shelter.serialize())
+        response.status_code = 201
+    else:
+        print(city)
+        shelters = city.shelters
+        print(shelters)
+        response = jsonify([shelter.serialize() for shelter in shelters])
+        response.status_code = 200
+    return response
 
-
-
-
+@app.route("/shelters/<int:id>", methods=['GET', 'PUT', 'DELETE'])
+@utils.crossdomain(origin="*")
+def shelter_operation(id, **kwargs):
+    shelter = Shelter.query.filter_by(id=id).first()
+    if not shelter:
+        abort(404)
+    if request.method == 'DELETE':
+        shelter.delete()
+        response = jsonify(
+            {
+                "message": "shelter {} deleted successfully".format(shelter.id)
+            }
+        )
+        response.status_code = 200
+    elif request.method == 'PUT':
+        params = request.get_json()
+        shelter.name = params.get('name', shelter.name)
+        shelter.kennel_num = params.get('kennel_num', shelter.kennel_num)
+        shelter.city_id = params.get('city_id', shelter.city_id)
+        shelter.location_x = params.get('location_x', shelter.location_x)
+        shelter.location_y = params.get('location_y', shelter.location_y)
+        shelter.save()
+        response = jsonify(shelter.serialize())
+        response.status_code = 200
+    else:
+        response = jsonify(shelter.serialize())
+        response.status_code = 200
+    return response
 
