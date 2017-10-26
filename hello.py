@@ -6,6 +6,7 @@ import datetime
 from datetime import date
 from flask import Flask, jsonify, Response, request, abort
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 from sqlalchemy import and_
 import utils
 
@@ -14,6 +15,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:/
 # app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:931028hmh@localhost:3306/PetTracking'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 
 class Base(object):
     def save(self):
