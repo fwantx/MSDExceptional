@@ -50,7 +50,6 @@ class Shelter(db.Model, Base):
     city = db.relationship('City', backref=db.backref('shelters', lazy='dynamic'))
     location_x = db.Column(db.Integer, nullable=False)
     location_y = db.Column(db.Integer, nullable=False)    
-    pets = db.relationship('Pet', backref='pet', lazy=True)
 
     def __init__(self, name, kennel_num, city, location_x, location_y):
         self.name = name
@@ -72,38 +71,47 @@ class Shelter(db.Model, Base):
             'location_y': self.location_y,
         }
 
-# class GenderType(enum.Enum):
-#     MALE = "Male"
-#     FEMALE = "Female"
-
-
-class Pet(db.Model):
+class Pet(db.Model, Base):
     id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255))
     color = db.Column(db.String(80), nullable=False)
     type = db.Column(db.String(80), nullable=False)
     breed = db.Column(db.String(80), nullable=False)
     size = db.Column(db.Integer, nullable=False)
-    # gender = db.Column(enum.Enum(GenderType), nullable=False)
     gender = db.Column(db.String(80), nullable=False)
     shelter_id = db.Column(db.Integer, db.ForeignKey('shelter.id'), nullable=True)
-    found_time = db.Column(db.Date, nullable=False)
+    shelter = db.relationship('Shelter', backref=db.backref('pets', lazy='dynamic'))
+    found_time = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     found_location_x = db.Column(db.Integer, nullable=False)
     found_location_y = db.Column(db.Integer, nullable=False)
 
-    def __init__(self, color, type, breed, size, gender, found_time, found_location_x, found_location_y,
-                 shelter_id=None):
+    def __init__(self, name, gender, color, type, breed, size, found_location_x, found_location_y, shelter=None):
+        self.name = name
+        self.gender = gender
         self.color = color
         self.type = type
         self.breed = breed
         self.size = size
-        self.gender = gender
-        self.found_time = found_time
         self.found_location_x = found_location_x
         self.found_location_y = found_location_y
-        self.shelter_id = shelter_id
+        self.shelter = shelter
 
     def __repr__(self):
         return '<Pet %r>' % self.id
+
+    def serialize(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'gender': self.gender,
+            'color': self.color,
+            'type': self.type,
+            'breed': self.breed,
+            'size': self.size,
+            'found_location_x': self.found_location_x,
+            'found_location_y': self.found_location_y,
+            'shelter': self.shelter.serialize(),
+        }
 
 @app.route("/test")
 def test():
@@ -238,9 +246,7 @@ def shelters_by_city(id, **kwargs):
         response = jsonify(shelter.serialize())
         response.status_code = 201
     else:
-        print(city)
         shelters = city.shelters
-        print(shelters)
         response = jsonify([shelter.serialize() for shelter in shelters])
         response.status_code = 200
     return response
@@ -271,6 +277,58 @@ def shelter_operation(id, **kwargs):
         response.status_code = 200
     else:
         response = jsonify(shelter.serialize())
+        response.status_code = 200
+    return response
+
+@app.route("/shelters/<int:id>/pets", methods=['GET', 'POST'])
+@utils.crossdomain(origin="*")
+def pets_by_shelter(id, **kwargs):
+    shelter = Shelter.query.filter_by(id=id).first()
+    if not shelter:
+        abort(404)
+    if request.method == 'POST':
+        params = request.get_json()
+        pet = Pet(params['name'], params['gender'], params['color'], params['type'], params['breed'], params['size'], params['found_location_x'], params['found_location_y'], shelter)
+        pet.save()
+        response = jsonify(pet.serialize())
+        response.status_code = 201
+        # def __init__(self, name, gender, color, type, breed, size, found_location_x, found_location_y, shelter=None):
+    else:
+        pets = shelter.pets
+        response = jsonify([pet.serialize() for pet in pets])
+        response.status_code = 200
+    return response
+
+@app.route("/pets/<int:id>", methods=['GET', 'PUT', 'DELETE'])
+@utils.crossdomain(origin="*")
+def pet_operation(id, **kwargs):
+    pet = Pet.query.filter_by(id=id).first()
+    if not pet:
+        abort(404)
+    if request.method == 'DELETE':
+        pet.delete()
+        response = jsonify(
+            {
+                "message": "pet {} deleted successfully".format(pet.id)
+            }
+        )
+        response.status_code = 200
+    elif request.method == 'PUT':
+        params = request.get_json()
+        pet.name = params.get('name', pet.name)
+        pet.gender = params.get('gender', pet.gender)
+        pet.color = params.get('color', pet.color)
+        pet.type = params.get('type', pet.type)
+        pet.breed = params.get('breed', pet.breed)
+        pet.size = params.get('size', pet.size)
+        pet.found_location_x = params.get('found_location_x', pet.found_location_x)
+        pet.found_location_y = params.get('found_location_y', pet.found_location_y)
+        pet.shelter_id = params.get('shelter_id', pet.shelter_id)
+        pet.save()
+        response = jsonify(pet.serialize())
+        response.status_code = 200
+    else:
+        response = jsonify(pet.serialize())
         response.status_code = 200
     return response
 
