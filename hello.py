@@ -100,6 +100,11 @@ class Pet(db.Model, Base):
         return '<Pet %r>' % self.id
 
     def serialize(self):
+        if self.shelter is None:
+            shelter = None
+        else:
+            shelter = self.shelter.serialize()
+
         return {
             'id': self.id,
             'name': self.name,
@@ -110,7 +115,7 @@ class Pet(db.Model, Base):
             'size': self.size,
             'found_location_x': self.found_location_x,
             'found_location_y': self.found_location_y,
-            'shelter': self.shelter.serialize(),
+            'shelter': shelter,
         }
 
 @app.route("/test")
@@ -330,5 +335,26 @@ def pet_operation(id, **kwargs):
     else:
         response = jsonify(pet.serialize())
         response.status_code = 200
+    return response
+
+
+@app.route("/pets", methods=['POST'])
+@utils.crossdomain(origin="*")
+def pet_post():
+
+    params = request.get_json()
+    name = params.get('name')
+    gender = params.get('gender')
+    color = params.get('color')
+    type = params.get('type')
+    breed = params.get('breed')
+    size = params.get('size')
+    found_location_x = params.get('found_location_x')
+    found_location_y = params.get('found_location_y')
+    pet = Pet(name, gender, color, type, breed, size, found_location_x, found_location_y)
+    pet.save()
+    response = jsonify(pet.serialize())
+    response.status_code = 201
+
     return response
 
