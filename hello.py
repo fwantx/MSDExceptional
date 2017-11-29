@@ -6,6 +6,7 @@ import datetime
 from datetime import date
 from flask import Flask, jsonify, Response, request, abort
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import func
 from flask_migrate import Migrate
 from sqlalchemy import and_
 import utils
@@ -141,7 +142,7 @@ def create_app(config_name='development'):
             abort(404)
         if request.method == 'POST':
             params = request.get_json()
-            shelter = Shelter(params['name'], params['kennel_num'], city, params['location_x'], params['location_y'])
+            shelter = Shelter(params['name'], params['kennel_num'], params['location_x'], params['location_y'], city)
             shelter.save()
             response = jsonify(shelter.serialize())
             response.status_code = 201
@@ -232,6 +233,67 @@ def create_app(config_name='development'):
             response.status_code = 200
         return response
 
+    @app.route("/search_pets", methods=['GET'])
+    @utils.crossdomain(origin="*")
+    def search_pets():
+        if request.method != 'GET':
+            abort(404)
+        else:
+            params = request.get_json()
+            conditions = dict()
+            if 'gender' in params:
+                conditions['gender'] = params.get('gender')
+            if 'color' in params:
+                conditions['color'] = params.get('color')
+            if 'type' in params:
+                conditions['type'] = params.get('type')
+            if 'breed' in params:
+                conditions['breed'] = params.get('breed')
+            if 'size' in params:
+                conditions['size'] = params.get('size')
+            if 'shelter_id' in params:
+                conditions['shelter_id'] = params.get('shelter_id')
+            if 'found_location_x' not in params or 'found_location_y' not in params:
+                pets = Pet.query.filter_by(**conditions)
+            else:
+                x_lower = params.get('found_location_x') - 3
+                x_upper = params.get('found_location_x') + 3
+                y_lower = params.get('found_location_y') - 3
+                y_upper = params.get('found_location_y') + 3
+                pets = Pet.query.filter_by(**conditions).filter(
+                    Pet.found_location_x >= x_lower,
+                    Pet.found_location_x <= x_upper,
+                    Pet.found_location_y >= y_lower,
+                    Pet.found_location_y <= y_upper,
+                )
+            response = jsonify([p.serialize() for p in pets])
+            response.status_code = 200
+        return response
+
+    @app.route("/get_available_shelters", methods=['GET'])
+    @utils.crossdomain(origin="*")
+    def get_available_shelters():
+        if request.method != 'GET':
+            abort(404)
+        else:
+            params = request.get_json()
+            if 'found_location_x' not in params or 'found_location_y' not in params:
+                shelters = Shelter.query.join(Pet).group_by(Shelter).having(func.count(Pet.id) < Shelter.kennel_num)
+            else:
+                x_lower = params.get('found_location_x') - 10
+                x_upper = params.get('found_location_x') + 10
+                y_lower = params.get('found_location_y') - 10
+                y_upper = params.get('found_location_y') + 10
+                shelters = Shelter.query.join(Pet).group_by(Shelter).having(func.count(Pet.id) < Shelter.kennel_num).filter(
+                    Shelter.location_x >= x_lower,
+                    Shelter.location_x <= x_upper,
+                    Shelter.location_y >= y_lower,
+                    Shelter.location_y <= y_upper,
+                )
+            response = jsonify([s.serialize() for s in shelters])
+            response.status_code = 200
+        return response
+
     @app.route("/pets", methods=['POST'])
     @utils.crossdomain(origin="*")
     def pet_post():
@@ -291,12 +353,12 @@ class Shelter(db.Model, Base):
     location_x = db.Column(db.Integer, nullable=False)
     location_y = db.Column(db.Integer, nullable=False)    
 
-    def __init__(self, name, kennel_num, city, location_x, location_y):
+    def __init__(self, name, kennel_num, location_x, location_y, city=None):
         self.name = name
         self.kennel_num = kennel_num
-        self.city = city
         self.location_x = location_x
         self.location_y = location_y
+        self.city = city
 
     def __repr__(self):
         return '<Shelter %r>' % self.name
@@ -306,7 +368,7 @@ class Shelter(db.Model, Base):
             'id': self.id,
             'name': self.name,
             'kennel_num': self.kennel_num,
-            'city': self.city.serialize(),
+            'city': self.city.serialize() if self.city else None,
             'location_x': self.location_x,
             'location_y': self.location_y,
         }
@@ -340,11 +402,6 @@ class Pet(db.Model, Base):
         return '<Pet %r>' % self.id
 
     def serialize(self):
-        if self.shelter is None:
-            shelter = None
-        else:
-            shelter = self.shelter.serialize()
-
         return {
             'id': self.id,
             'name': self.name,
@@ -355,5 +412,5 @@ class Pet(db.Model, Base):
             'size': self.size,
             'found_location_x': self.found_location_x,
             'found_location_y': self.found_location_y,
-            'shelter': shelter,
+            'shelter': self.shelter.serialize() if self.shelter else None,
         }
