@@ -1,0 +1,72 @@
+import json
+import unittest
+from hello import app, db, City, Shelter, Pet
+
+class ShelterTestCase(unittest.TestCase):
+
+       def setUp(self):
+               db.drop_all()
+               db.create_all()
+               app.testing = true
+               self.app = app.test_client()
+
+       def addOneShelter(self):
+               city = City("Chicago")
+               shelter = Shelter("SLUShelter", 100, city, 12, 24)
+               db.session.add(shelter)
+               db.session.commit()
+
+       def addOneCity(self):
+               city = City("Seattle")
+               db.session.add(shelter)
+               db.session.commit()
+
+       def test_shelters(self):
+        	   city = City("Seattle")
+               shelter = Shelter("SLUShelter", 100, city, 12, 24)
+        	   ret = self.app.post('/shelters', data=json.dumps(shelter.serialize()), content_type='application/json')
+        	   assert ret.status_code == 201
+        	   assert b'"name": "SLUShelter"' in ret.data
+
+       def test_shelters_shelterId_get(self):
+        		self.addOneShelter()
+        		ret = self.app.get('/shelters/1')
+        		assert ret.status_code == 200
+        		assert b'"name": "SLUShelter"' in ret.data
+
+       def test_shelters_shelterId_put(self):
+        		self.addOneShelter()
+        		city = City("Seattle")
+                shelter = Shelter("westLakeShelter", 50, city, 10, 32)
+        		ret = self.app.put('/shelters/1', data=json.dumps(shelter.serialize()), content_type='application/json')
+        		assert ret.status_code == 200
+        		assert b'"name": "westLakeShelter"' in ret.data
+
+       def test_shelters_shelterId_delete(self):
+        		self.addOneShelter()
+        		ret = self.app.delete('/shelters/1')
+        		assert ret.status_code == 200
+        		assert b'deleted successfully' in ret.data
+
+       def test_cities_cityId_shelters_post(self):
+        		self.addOneCity()
+        		shelter = Shelter("SLUShelter", 100, city, 12, 24)
+        		ret = self.app.post('/cities/1/shelters', data=json.dumps(shelter.serialize()), content_type='application/json')
+        		assert ret.status_code == 201
+        		assert b'"name": "Chicago"' in ret.data
+
+       def test_cities_cityId_shelters_get(self):
+        		shelter1 = Shelter("SLUShelter", 100, city, 12, 24)
+        		shelter2 = Shelter("westLakeShelter", 50, city, 10, 32)
+        		self.addOneCity()
+        		ret = self.app.post('/cities/1/shelters', data=json.dumps(shelter1.serialize()), content_type='application/json')
+        		ret = self.app.post('/cities/1/shelters', data=json.dumps(shelter2.serialize()), content_type='application/json')
+        		ret = self.app.get('/cities/1/shelters')
+        		assert ret.status_code == 200
+       		    assert b'"name": "SLUShelter"' in ret.data
+        		assert b'"name": "westLakeShelter"' in ret.data
+
+if __name__ == '__main__':
+ +	unittest.main()
+
+
