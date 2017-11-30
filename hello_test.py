@@ -73,6 +73,35 @@ class HelloTestCase(unittest.TestCase):
 		rv = self.client.get('/cities/{}'.format(id))
 		assert rv.status_code == 404
 
+	def test_can_create_shelter_with_city(self):
+		rv = self.client.post('/cities', data=json.dumps(self.city_1.serialize()), content_type='application/json')
+		assert rv.status_code == 201
+		assert self.city_1.name in str(rv.data)
+
+		rv = self.client.post('/cities/1/shelters', data=json.dumps(self.shelter_1.serialize()), content_type='application/json')
+		assert rv.status_code == 201
+		assert self.shelter_1.name in str(rv.data)
+
+	def test_can_edit_shelter_by_id(self):
+		rv = self.client.post('/cities', data=json.dumps(self.city_1.serialize()), content_type='application/json')
+		assert rv.status_code == 201
+		assert self.city_1.name in str(rv.data)
+		rv = self.client.post('/cities/1/shelters', data=json.dumps(self.shelter_1.serialize()), content_type='application/json')
+		assert rv.status_code == 201
+		assert self.shelter_1.name in str(rv.data)
+		rv = self.client.put('/shelters/1', data=json.dumps({'name': 'Small Animal Clinic'}), content_type='application/json')
+		assert rv.status_code == 200
+		rv = self.client.get('shelters/1')
+		assert 'Small Animal Clinic' in str(rv.data)
+
+	def test_can_create_pet_with_shelter(self):
+		rv = self.client.post('/cities', data=json.dumps(self.city_1.serialize()), content_type='application/json')
+		assert rv.status_code == 201
+		assert self.city_1.name in str(rv.data)
+		rv = self.client.post('/cities/1/shelters', data=json.dumps(self.shelter_1.serialize()), content_type='application/json')
+		assert rv.status_code == 201
+		assert self.shelter_1.name in str(rv.data)
+
 	def test_can_search_pets(self):
 		# create 3 pets for testing
 		rv = self.client.post('/pets', data=json.dumps(self.pet_1.serialize()), content_type='application/json')
@@ -85,19 +114,19 @@ class HelloTestCase(unittest.TestCase):
 		assert rv.status_code == 201
 		assert self.pet_3.name in str(rv.data)
 
-		rv = self.client.get('/search_pets', data=json.dumps({'breed': 'chihuahua'}), content_type='application/json')
+		rv = self.client.get('/search_pets', query_string={'breed': 'chihuahua'})
 		assert rv.status_code == 200
 		assert self.pet_1.name not in str(rv.data)
 		assert self.pet_2.name in str(rv.data)
 		assert self.pet_3.name not in str(rv.data)
 
-		rv = self.client.get('/search_pets', data=json.dumps({'type': 'dog', 'found_location_x': 12, 'found_location_y': 11}), content_type='application/json')
+		rv = self.client.get('/search_pets', query_string={'type': 'dog', 'found_location_x': 12, 'found_location_y': 11})
 		assert rv.status_code == 200
 		assert self.pet_1.name not in str(rv.data)
 		assert self.pet_2.name in str(rv.data)
 		assert self.pet_3.name not in str(rv.data)
 
-	def test_can_get_available_shelters(self):
+	def test_can_search_available_shelters(self):
 		rv = self.client.post('/cities', data=json.dumps(self.city_1.serialize()), content_type='application/json')
 		assert rv.status_code == 201
 		assert self.city_1.name in str(rv.data)
@@ -117,15 +146,15 @@ class HelloTestCase(unittest.TestCase):
 		assert rv.status_code == 201
 		assert self.pet_3.name in str(rv.data)
 
-		rv = self.client.get('/get_available_shelters', data=json.dumps({}), content_type='application/json')
+		rv = self.client.get('/search_available_shelters', query_string={})
 		assert self.shelter_1.name in str(rv.data)
 		assert self.shelter_2.name not in str(rv.data)
 
-		rv = self.client.get('/get_available_shelters', data=json.dumps({'found_location_x': 15, 'found_location_y': 15}), content_type='application/json')
+		rv = self.client.get('/search_available_shelters', query_string={'found_location_x': 15, 'found_location_y': 15})
 		assert self.shelter_1.name in str(rv.data)
 		assert self.shelter_2.name not in str(rv.data)
 
-		rv = self.client.get('/get_available_shelters', data=json.dumps({'found_location_x': 50, 'found_location_y': 50}), content_type='application/json')
+		rv = self.client.get('/search_available_shelters', query_string={'found_location_x': 50, 'found_location_y': 50})
 		assert self.shelter_1.name not in str(rv.data)
 		assert self.shelter_2.name not in str(rv.data)
 

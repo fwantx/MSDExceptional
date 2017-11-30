@@ -6,9 +6,8 @@ import datetime
 from datetime import date
 from flask import Flask, jsonify, Response, request, abort
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import func
 from flask_migrate import Migrate
-from sqlalchemy import and_
+from sqlalchemy import and_, func
 import utils
 
 def create_app(config_name='development'):
@@ -239,7 +238,7 @@ def create_app(config_name='development'):
         if request.method != 'GET':
             abort(404)
         else:
-            params = request.get_json()
+            params = request.args
             conditions = dict()
             if 'gender' in params:
                 conditions['gender'] = params.get('gender')
@@ -250,16 +249,16 @@ def create_app(config_name='development'):
             if 'breed' in params:
                 conditions['breed'] = params.get('breed')
             if 'size' in params:
-                conditions['size'] = params.get('size')
+                conditions['size'] = int(params.get('size'))
             if 'shelter_id' in params:
-                conditions['shelter_id'] = params.get('shelter_id')
+                conditions['shelter_id'] = int(params.get('shelter_id'))
             if 'found_location_x' not in params or 'found_location_y' not in params:
                 pets = Pet.query.filter_by(**conditions)
             else:
-                x_lower = params.get('found_location_x') - 3
-                x_upper = params.get('found_location_x') + 3
-                y_lower = params.get('found_location_y') - 3
-                y_upper = params.get('found_location_y') + 3
+                x_lower = int(params.get('found_location_x')) - 3
+                x_upper = int(params.get('found_location_x')) + 3
+                y_lower = int(params.get('found_location_y')) - 3
+                y_upper = int(params.get('found_location_y')) + 3
                 pets = Pet.query.filter_by(**conditions).filter(
                     Pet.found_location_x >= x_lower,
                     Pet.found_location_x <= x_upper,
@@ -270,20 +269,20 @@ def create_app(config_name='development'):
             response.status_code = 200
         return response
 
-    @app.route("/get_available_shelters", methods=['GET'])
+    @app.route("/search_available_shelters", methods=['GET'])
     @utils.crossdomain(origin="*")
-    def get_available_shelters():
+    def search_available_shelters():
         if request.method != 'GET':
             abort(404)
         else:
-            params = request.get_json()
+            params = request.args
             if 'found_location_x' not in params or 'found_location_y' not in params:
                 shelters = Shelter.query.join(Pet).group_by(Shelter).having(func.count(Pet.id) < Shelter.kennel_num)
             else:
-                x_lower = params.get('found_location_x') - 10
-                x_upper = params.get('found_location_x') + 10
-                y_lower = params.get('found_location_y') - 10
-                y_upper = params.get('found_location_y') + 10
+                x_lower = int(params.get('found_location_x')) - 10
+                x_upper = int(params.get('found_location_x')) + 10
+                y_lower = int(params.get('found_location_y')) - 10
+                y_upper = int(params.get('found_location_y')) + 10
                 shelters = Shelter.query.join(Pet).group_by(Shelter).having(func.count(Pet.id) < Shelter.kennel_num).filter(
                     Shelter.location_x >= x_lower,
                     Shelter.location_x <= x_upper,
