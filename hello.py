@@ -259,12 +259,12 @@ def create_app(config_name='development'):
                 x_upper = int(params.get('found_location_x')) + 3
                 y_lower = int(params.get('found_location_y')) - 3
                 y_upper = int(params.get('found_location_y')) + 3
-                pets = Pet.query.filter_by(**conditions).filter(
-                    Pet.found_location_x >= x_lower,
-                    Pet.found_location_x <= x_upper,
-                    Pet.found_location_y >= y_lower,
-                    Pet.found_location_y <= y_upper,
-                ).all()
+                pets = Pet.query.filter_by(**conditions)
+                    .filter(Pet.found_location_x >= x_lower)
+                    .filter(Pet.found_location_x <= x_upper)
+                    .filter(Pet.found_location_y >= y_lower)
+                    .filter(Pet.found_location_y <= y_upper)
+                    .all()
             response = jsonify([p.serialize() for p in pets])
             response.status_code = 200
         return response
