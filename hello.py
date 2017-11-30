@@ -253,7 +253,7 @@ def create_app(config_name='development'):
             if 'shelter_id' in params:
                 conditions['shelter_id'] = int(params.get('shelter_id'))
             if 'found_location_x' not in params or 'found_location_y' not in params:
-                pets = Pet.query.filter_by(**conditions)
+                pets = Pet.query.filter_by(**conditions).all()
             else:
                 x_lower = int(params.get('found_location_x')) - 3
                 x_upper = int(params.get('found_location_x')) + 3
@@ -264,7 +264,7 @@ def create_app(config_name='development'):
                     Pet.found_location_x <= x_upper,
                     Pet.found_location_y >= y_lower,
                     Pet.found_location_y <= y_upper,
-                )
+                ).all()
             response = jsonify([p.serialize() for p in pets])
             response.status_code = 200
         return response
@@ -277,7 +277,7 @@ def create_app(config_name='development'):
         else:
             params = request.args
             if 'found_location_x' not in params or 'found_location_y' not in params:
-                shelters = Shelter.query.join(Pet).group_by(Shelter).having(func.count(Pet.id) < Shelter.kennel_num)
+                shelters = Shelter.query.join(Pet).group_by(Shelter).having(func.count(Pet.id) < Shelter.kennel_num).all()
             else:
                 x_lower = int(params.get('found_location_x')) - 10
                 x_upper = int(params.get('found_location_x')) + 10
@@ -288,7 +288,8 @@ def create_app(config_name='development'):
                     Shelter.location_x <= x_upper,
                     Shelter.location_y >= y_lower,
                     Shelter.location_y <= y_upper,
-                )
+                ).all()
+                print(shelters)
             response = jsonify([s.serialize() for s in shelters])
             response.status_code = 200
         return response

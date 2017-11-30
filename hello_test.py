@@ -12,6 +12,7 @@ class HelloTestCase(unittest.TestCase):
 		self.city_2 = City('Boston')
 		self.shelter_1 = Shelter('Northgate Pet Center', 3, 10, 10)
 		self.shelter_2 = Shelter('Westlake Animal Center', 2, 20, 20)
+		self.shelter_3 = Shelter('UW Animal Center', 20, 150, 20)
 		self.pet_1 = Pet("Dog 1", "male", "white", "dog", "husky", 10, 21, 22)
 		self.pet_2 = Pet("Dog 2", "male", "yellow", "dog", "chihuahua", 10, 10, 10)
 		self.pet_3 = Pet("Dog 3", "female", "white", "dog", "husky", 5, 20, 20)
@@ -136,6 +137,9 @@ class HelloTestCase(unittest.TestCase):
 		rv = self.client.post('/cities/1/shelters', data=json.dumps(self.shelter_2.serialize()), content_type='application/json')
 		assert rv.status_code == 201
 		assert self.shelter_2.name in str(rv.data)
+		rv = self.client.post('/cities/1/shelters', data=json.dumps(self.shelter_3.serialize()), content_type='application/json')
+		assert rv.status_code == 201
+		assert self.shelter_3.name in str(rv.data)
 		rv = self.client.post('/shelters/1/pets', data=json.dumps(self.pet_1.serialize()), content_type='application/json')
 		assert rv.status_code == 201
 		assert self.pet_1.name in str(rv.data)
@@ -149,10 +153,11 @@ class HelloTestCase(unittest.TestCase):
 		rv = self.client.get('/search_available_shelters', query_string={})
 		assert self.shelter_1.name in str(rv.data)
 		assert self.shelter_2.name not in str(rv.data)
-
-		rv = self.client.get('/search_available_shelters', query_string={'found_location_x': 15, 'found_location_y': 15})
-		assert self.shelter_1.name in str(rv.data)
+		
+		rv = self.client.get('/search_available_shelters', query_string={'found_location_x': 150, 'found_location_y': 15})
+		assert self.shelter_1.name not in str(rv.data)
 		assert self.shelter_2.name not in str(rv.data)
+		assert self.shelter_3.name in str(rv.data)
 
 		rv = self.client.get('/search_available_shelters', query_string={'found_location_x': 50, 'found_location_y': 50})
 		assert self.shelter_1.name not in str(rv.data)
