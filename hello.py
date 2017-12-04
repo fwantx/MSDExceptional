@@ -2,11 +2,12 @@
 
 import os
 import json
-import datetime
-from datetime import date
+import jwt
+from datetime import date, datetime, timedelta
 from flask import Flask, jsonify, Response, request, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
+from flask_bcrypt import Bcrypt
 from sqlalchemy import and_, func
 import utils
 
@@ -18,6 +19,7 @@ def create_app(config_name='development'):
     else:
         app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:////tmp/development.db')
         # app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:931028hmh@localhost:3306/PetTracking'
+    app.config['SECRET'] = '9SfrWRJwaaqGwggpaBG1QPpqqVAg7eTK'
 
     @app.route("/test")
     def test():
@@ -90,7 +92,17 @@ def create_app(config_name='development'):
 
     @app.route("/")
     def welcome():
-        return 'Welcome to Exceptional!'
+        access_token = request.headers.get('Token')
+        if access_token:
+            user_id = User.decode_token(access_token)
+            if isinstance(user_id, str):
+                response = jsonify({
+                    'message': user_id
+                })
+                response.status_code = 401
+                return response
+            else:
+                return 'Welcome to Exceptional!'
 
     @app.route("/cities", methods=['GET', 'POST'])
     @utils.crossdomain(origin='*')
@@ -284,7 +296,6 @@ def create_app(config_name='development'):
                     Shelter.location_y >= y_lower,
                     Shelter.location_y <= y_upper,
                 ).all()
-                print(shelters)
             response = jsonify([s.serialize() for s in shelters])
             response.status_code = 200
         return response
@@ -308,6 +319,63 @@ def create_app(config_name='development'):
 
         return response
 
+    @app.route('/auth/register', methods=['POST'])
+    @utils.crossdomain(origin='*')
+    def auth_register():
+        params = request.get_json()
+        email = params.get('email')
+        password = params.get('password')
+        user = User.query.filter_by(email=email).first()
+
+        if not user:
+            try:
+                user = User(email=email, password=password)
+                user.save()
+                response = jsonify({
+                    'message': 'You registered successfully. Please login.'
+                })
+                response.status_code = 201
+            except Exception as e:
+                response = jsonify({
+                    'message': str(e)
+                })
+                response.status_code = 401
+        else:
+            response = jsonify({
+                'message': 'User already exists. Please login.'
+            })
+            response.status_code = 202
+        return response
+
+    @app.route('/auth/login', methods=['POST'])
+    @utils.crossdomain(origin='*')
+    def auth_login():
+        try:
+            params = request.get_json()
+            email = params.get('email')
+            password = params.get('password')
+            user = User.query.filter_by(email=email).first()
+            
+            if user and user.password_is_valid(password):
+                access_token = user.generate_token(user.id)
+                if access_token:
+                    response = jsonify({
+                        'message': 'You logged in successfully.',
+                        'access_token': access_token.decode(),
+                    })
+                    response.status_code = 200
+            else:
+                response = jsonify({
+                    'message': 'Invalid email or password. Please try again.'
+                })
+                response.status_code = 401
+        except Exception as e:
+            response = jsonify({
+                'message': str(e)
+            })
+            response.status_code = 500
+        return response
+
     return app
 
 app = create_app(config_name='development')
@@ -322,6 +390,47 @@ class Base(object):
     def delete(self):
         db.session.delete(self)
         db.session.commit()
+
+class User(db.Model, Base):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), nullable=False, unique=True)
+    password = db.Column(db.String(255), nullable=False)
+
+    def __init__(self, email, password):
+        self.email = email
+        self.password = Bcrypt().generate_password_hash(password).decode()
+
+    def __repr__(self):
+        return '<User %r>' % self.email
+
+    def password_is_valid(self, password):
+        return Bcrypt().check_password_hash(self.password, password)
+
+    def generate_token(self, user_id):
+        try:
+            payload = {
+                'exp': datetime.utcnow() + timedelta(minutes=10),
+                'iat': datetime.utcnow(),
+                'sub': user_id,
+            }
+            jwt_str = jwt.encode(
+                payload,
+                app.config.get('SECRET'),
+                algorithm='HS256',
+            )
+            return jwt_str
+        except Exception as e:
+            return str(e)
+
+    @staticmethod
+    def decode_token(token):
+        try:
+            payload = jwt.decode(token, app.config.get('SECRET'))
+            return payload['sub']
+        except jwt.ExpiredSignatureError:
+            return 'Expired token. Please login to get a new token.'
+        except jwt.InvalidTokenError:
+            return 'Invalid token. Please register or login.'
 
 class City(db.Model, Base):
     id = db.Column(db.Integer, primary_key=True)
@@ -378,7 +487,7 @@ class Pet(db.Model, Base):
     gender = db.Column(db.String(80), nullable=False)
     shelter_id = db.Column(db.Integer, db.ForeignKey('shelter.id'), nullable=True)
     shelter = db.relationship('Shelter', backref=db.backref('pets', lazy='dynamic'))
-    found_time = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    found_time = db.Column(db.DateTime, default=datetime.utcnow)
     found_location_x = db.Column(db.Integer, nullable=False)
     found_location_y = db.Column(db.Integer, nullable=False)
 

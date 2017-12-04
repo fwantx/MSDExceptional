@@ -1,6 +1,6 @@
 import json
 import unittest
-from hello import create_app, db, City, Shelter, Pet
+from hello import create_app, db, City, Shelter, Pet, User
 
 class HelloTestCase(unittest.TestCase):
 
@@ -16,6 +16,14 @@ class HelloTestCase(unittest.TestCase):
 		self.pet_1 = Pet("Dog 1", "male", "white", "dog", "husky", 10, 21, 22)
 		self.pet_2 = Pet("Dog 2", "male", "yellow", "dog", "chihuahua", 10, 10, 10)
 		self.pet_3 = Pet("Dog 3", "female", "white", "dog", "husky", 5, 20, 20)
+		self.user_data = {
+			'email': 'test@example.com',
+			'password': 'test_password',
+		}
+		self.not_user_data = {
+			'email': 'not_a_user@example.com',
+			'password': 'nope',
+		}
 
 		with self.app.app_context():
 			db.drop_all()
@@ -26,8 +34,26 @@ class HelloTestCase(unittest.TestCase):
 			db.session.remove()
 			db.drop_all()
 
+	def register_user(self, email='user@test.com', password='test1234'):
+		user_data = {
+			'email': email,
+			'password': password,
+		}
+		return self.client.post('/auth/register', data=json.dumps(user_data), content_type='application/json')
+
+	def login_user(self, email='user@test.com', password='test1234'):
+		user_data = {
+			'email': email,
+			'password': password,
+		}
+		return self.client.post('/auth/login', data=json.dumps(user_data), content_type='application/json')
+
 	def testRoot(self):
-		rv = self.client.get('/')
+		result = self.register_user()
+		result = self.login_user()
+		access_token = json.loads(result.data.decode())['access_token']
+
+		rv = self.client.get('/', headers=dict(Token=access_token))
 		assert rv.status_code == 200
 		assert 'Welcome to Exceptional!' in str(rv.data)
 
@@ -162,6 +188,48 @@ class HelloTestCase(unittest.TestCase):
 		rv = self.client.get('/search_available_shelters', query_string={'found_location_x': 50, 'found_location_y': 50})
 		assert self.shelter_1.name not in str(rv.data)
 		assert self.shelter_2.name not in str(rv.data)
+
+	def test_user_registration(self):
+		res = self.client.post('/auth/register', data=json.dumps(self.user_data), content_type='application/json')
+		result = json.loads(res.data.decode())
+		assert result['message'] == 'You registered successfully. Please login.'
+		assert res.status_code == 201
+
+	def test_already_registered_user(self):
+		res = self.client.post('/auth/register', data=json.dumps(self.user_data), content_type='application/json')
+		assert res.status_code == 201
+		second_res = self.client.post('/auth/register', data=json.dumps(self.user_data), content_type='application/json')
+		assert second_res.status_code == 202
+		result = json.loads(second_res.data.decode())
+		assert result['message'] == 'User already exists. Please login.'
+
+	def test_user_login(self):
+		res = self.client.post('/auth/register', data=json.dumps(self.user_data), content_type='application/json')
+		assert res.status_code == 201
+		login_res = self.client.post('/auth/login', data=json.dumps(self.user_data), content_type='application/json')
+
+		result = json.loads(login_res.data.decode())
+		assert result['message'] == 'You logged in successfully.'
+		assert login_res.status_code == 200
+		assert result['access_token']
+
+	# def test_non_registered_user_login(self):
+	# 	res = self.client.post('/auth/login', data=json.dumps(self.not_user_data), content_type='application/json')
+	# 	result = json.loads(res.data.decode())
+	# 	assert res.status_code == 401
+	# 	assert result['message'] == 'Invalid email or password. Please try again.'
+
+
+
+
+
+
+
+
+
+
+
+
 
 if __name__ == '__main__':
 	unittest.main()
