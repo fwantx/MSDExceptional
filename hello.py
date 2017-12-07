@@ -35,61 +35,6 @@ def create_app(config_name='development'):
         db.session.commit()
         return jsonify(success='yes')
 
-    @app.route("/createpet")
-    def create_pet():
-        color = request.args.get('color')
-        type = request.args.get('type')
-        breed = request.args.get('breed')
-        size = request.args.get('size')
-        gender = request.args.get('gender')
-        found_location_x = request.args.get('x')
-        found_location_y = request.args.get('y')
-        new_pet = Pet(color, type, breed, size, gender, date.today(), found_location_x, found_location_y)
-        db.session.add(new_pet)
-        db.session.commit()
-        return jsonify(success='yes')
-
-    @app.route("/assignshelter")
-    def assign_shelter():
-        shelter_id = request.args.get('shelterid')
-        pet_id = request.args.get('petid')
-        # pet_num = db.session.query(Pet).filter_by(shelter_id = shelter_id).count()
-        # this_shelter = Shelter.query.filter_by(id=shelter_id).first()
-        this_shelter = Shelter.query.get(shelter_id)
-        this_pet = Pet.query.get(pet_id)
-        if this_shelter.empty_kennel_num > 0:
-            this_pet.shelter_id = shelter_id
-            this_shelter.empty_kennel_num -= 1
-            return jsonify(ShelterName=this_shelter.name)
-        else:
-            # Assume that there must be at least one available shelter
-            another_shelter = Shelter.query.order_by(Shelter.empty_kennel_num.desc()).first()
-            this_pet.shelter_id = another_shelter.id
-            another_shelter.empty_kennel_num -= 1
-            return jsonify(ShelterName=another_shelter.name)
-        db.session.commit()
-
-    @app.route("/search")
-    def search_pet():
-        location_x = int(request.args.get('x'))
-        location_y = int(request.args.get('y'))
-        radius = int(request.args.get('r'))
-        boundx1 = location_x - radius
-        boundx2 = location_x + radius
-        boundy1 = location_y - radius
-        boundy2 = location_y + radius
-        # def check_pos(x, y):
-        #     if (boundx1 < x < boundx2) is True and (boundy1 < y < boundy2) is True:
-        #         return True
-        #     else:
-        #         return False
-        pets = Pet.query.filter(and_(Pet.found_location_x > boundx1,
-                                                 Pet.found_location_x < boundx2,
-                                                 Pet.found_location_y > boundy1,
-                                                 Pet.found_location_y < boundy2)).all()
-        list = [pet.id for pet in pets]
-        return jsonify(results=list)
-
     @app.route("/")
     def welcome():
         access_token = request.headers.get('Token')
@@ -296,6 +241,35 @@ def create_app(config_name='development'):
                     Shelter.location_y >= y_lower,
                     Shelter.location_y <= y_upper,
                 ).all()
+            response = jsonify([s.serialize() for s in shelters])
+            response.status_code = 200
+        return response
+
+    @app.route("/shelters/<int:shelter_id>/move_pet/<int:pet_id>", methods=['PUT'])
+    @utils.crossdomain(origin='*')
+    def move_pet(shelter_id, pet_id, **kwarg):
+        pet = Pet.query.filter_by(id=pet_id).first()
+        shelter = Shelter.query.filter_by(id=shelter_id).first()
+        if not pet:
+            abort(404)
+        elif not shelter:
+            abort(404)
+        else:
+            pet.shelter_id = shelter_id
+            pet.shelter = shelter
+            pet.save()
+            response = jsonify(pet.serialize())
+            response.status_code = 200
+        return response
+
+    @app.route("/cities/<int:id>/search_shelters", methods=['GET'])
+    @utils.crossdomain(origin="*")
+    def search_shelters_with_city(id, **kwargs):
+        city = City.query.filter_by(id=id).first()
+        if not city:
+            abort(404)
+        else:
+            shelters = Shelter.query.outerjoin(Pet).group_by(Shelter.id).filter(Shelter.city_id == id).order_by((Shelter.kennel_num-func.count(Pet.id)).desc()).all()
             response = jsonify([s.serialize() for s in shelters])
             response.status_code = 200
         return response

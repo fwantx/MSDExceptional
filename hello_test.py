@@ -213,11 +213,28 @@ class HelloTestCase(unittest.TestCase):
 		assert login_res.status_code == 200
 		assert result['access_token']
 
-	# def test_non_registered_user_login(self):
-	# 	res = self.client.post('/auth/login', data=json.dumps(self.not_user_data), content_type='application/json')
-	# 	result = json.loads(res.data.decode())
-	# 	assert res.status_code == 401
-	# 	assert result['message'] == 'Invalid email or password. Please try again.'
+	def test_move_pet(self):
+		self.client.post('/cities', data=json.dumps(self.city_1.serialize()), content_type='application/json')
+		self.client.post('/cities/1/shelters', data=json.dumps(self.shelter_1.serialize()), content_type='application/json')
+		self.client.post('/cities/1/shelters', data=json.dumps(self.shelter_2.serialize()), content_type='application/json')
+		self.client.post('/shelters/1/pets', data=json.dumps(self.pet_1.serialize()), content_type='application/json')
+		res = self.client.put('/shelters/2/move_pet/1', data=json.dumps(self.pet_1.serialize()), content_type='application/json')
+		assert res.status_code == 200
+
+		result = json.loads(res.data.decode())
+		assert result['shelter']['id'] == 2
+
+	def test_search_shelters_with_city(self):
+		self.client.post('/cities', data=json.dumps(self.city_1.serialize()), content_type='application/json')
+		self.client.post('/cities/1/shelters', data=json.dumps(self.shelter_1.serialize()), content_type='application/json')
+		self.client.post('/cities/1/shelters', data=json.dumps(self.shelter_2.serialize()), content_type='application/json')
+		res = self.client.get('/cities/1/search_shelters')
+		assert res.status_code == 200
+
+		result = json.loads(res.data.decode())
+		assert result[0]['id'] == 1
+		assert result[1]['id'] == 2
+
 
 
 

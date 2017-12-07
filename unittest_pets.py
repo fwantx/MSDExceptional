@@ -67,6 +67,5 @@ class PetTestCase(unittest.TestCase):
 		assert b'"name": "Java"' in ret.data
 		assert b'"name": "Python"' in ret.data
 
-
 if __name__ == '__main__':
 	unittest.main()
