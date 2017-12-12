@@ -70,7 +70,13 @@ def create_app(config_name='development'):
     def city_operation(id, **kwargs):
         city = City.query.filter_by(id=id).first()
         if not city:
-            abort(404)
+            response = jsonify(
+                {
+                    "message": "not found error"
+                }
+            )
+            response.status_code = 404
+            return response
         if request.method == 'DELETE':
             city.delete()
             response = jsonify(
@@ -95,7 +101,13 @@ def create_app(config_name='development'):
     def shelters_by_city(id, **kwargs):
         city = City.query.filter_by(id=id).first()
         if not city:
-            abort(404)
+            response = jsonify(
+                {
+                    "message": "not found error"
+                }
+            )
+            response.status_code = 404
+            return response
         if request.method == 'POST':
             params = request.get_json()
             shelter = Shelter(params['name'], params['kennel_num'], params['location_x'], params['location_y'], city)
@@ -113,7 +125,13 @@ def create_app(config_name='development'):
     def shelter_operation(id, **kwargs):
         shelter = Shelter.query.filter_by(id=id).first()
         if not shelter:
-            abort(404)
+            response = jsonify(
+                {
+                    "message": "not found error"
+                }
+            )
+            response.status_code = 404
+            return response
         if request.method == 'DELETE':
             shelter.delete()
             response = jsonify(
@@ -142,7 +160,13 @@ def create_app(config_name='development'):
     def pets_by_shelter(id, **kwargs):
         shelter = Shelter.query.filter_by(id=id).first()
         if not shelter:
-            abort(404)
+            response = jsonify(
+                {
+                    "message": "not found error"
+                }
+            )
+            response.status_code = 404
+            return response
         if request.method == 'POST':
             params = request.get_json()
             pet = Pet(params['name'], params['gender'], params['color'], params['type'], params['breed'], params['size'], params['found_location_x'], params['found_location_y'], shelter)
@@ -161,7 +185,13 @@ def create_app(config_name='development'):
     def pet_operation(id, **kwargs):
         pet = Pet.query.filter_by(id=id).first()
         if not pet:
-            abort(404)
+            response = jsonify(
+                {
+                    "message": "not found error"
+                }
+            )
+            response.status_code = 404
+            return response
         if request.method == 'DELETE':
             pet.delete()
             response = jsonify(
@@ -193,7 +223,13 @@ def create_app(config_name='development'):
     @utils.crossdomain(origin="*")
     def search_pets():
         if request.method != 'GET':
-            abort(404)
+            response = jsonify(
+                {
+                    "message": "not found error"
+                }
+            )
+            response.status_code = 404
+            return response
         else:
             params = request.args
             conditions = dict()
@@ -225,7 +261,13 @@ def create_app(config_name='development'):
     @utils.crossdomain(origin="*")
     def search_available_shelters():
         if request.method != 'GET':
-            abort(404)
+            response = jsonify(
+                {
+                    "message": "not found error"
+                }
+            )
+            response.status_code = 404
+            return response
         else:
             params = request.args
             if 'found_location_x' not in params or 'found_location_y' not in params:
