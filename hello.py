@@ -48,6 +48,8 @@ def create_app(config_name='development'):
                 return response
             else:
                 return 'Welcome to Exceptional!'
+        else:
+            return 'Not allowed! Please register and login.'
 
     @app.route("/cities", methods=['GET', 'POST'])
     @utils.crossdomain(origin='*')
